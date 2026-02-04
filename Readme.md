@@ -95,3 +95,4 @@ Bank specifics
 * For ING DiBa you need a password that is between 5 and 10 characters, not less not more as you will otherwise run into this error:
   * ```Anmeldung nur mit 10-stelliger Kontonummer und 5 bis 10-stelliger PIN möglich.```
   * *Note: this will not lead to your account being blocked due to to many attempts as you do not attempt a login funnily enough*
+* For Targobank, if your transactions are having [unhelpful descriptions](https://github.com/bnw/firefly-iii-fints-importer/pull/201), try setting `force_mt940=true` (only available in the configuration file, not the GUI). This will use a different API to retrieve your transactions that does not have this problem.
