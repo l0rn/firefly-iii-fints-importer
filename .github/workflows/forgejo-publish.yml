@@ -9,6 +9,8 @@ on:
 jobs:
   docker:
     runs-on: docker
+    container:
+      image: forgejo.zint.de/l0rn/builder:latest
     steps:
       - name: Compute image tags
         id: meta
