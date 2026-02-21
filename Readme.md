@@ -68,7 +68,7 @@ Example:
 `curl -X GET 'http://localhost:8080/?automate=true&config=example.json&bank_account_iban=DE123...&from=now-7%20days&to=now'`
 
 Automate mode responds with JSON:
-- `200` when import finished,
+- `200` when import finished (includes `total_num_transactions`, `duplicate_transactions`, and `new_transactions`),
 - `400` if required parameters/mappings are missing,
 - `202` if a TAN challenge is required. The response contains a `tan_url` you can open in a browser to complete the challenge.
 

@@ -95,6 +95,27 @@ function RunImportWithJS()
     return Step::DONE;
 }
 
+
+function count_duplicate_transactions($import_messages)
+{
+    $duplicates = 0;
+
+    foreach ($import_messages as $message_entry) {
+        if (!is_array($message_entry) || !array_key_exists('messages', $message_entry)) {
+            continue;
+        }
+
+        foreach ($message_entry['messages'] as $message_text) {
+            if (stripos((string)$message_text, 'duplicate') !== false) {
+                $duplicates++;
+                break;
+            }
+        }
+    }
+
+    return $duplicates;
+}
+
 function RunImportWithoutJS()
 {
     global $session, $twig, $automate_without_js;
@@ -118,11 +139,17 @@ function RunImportWithoutJS()
     }
     save_state_file();
     if ($automate_without_js) {
+        $total_num_transactions = count($transactions);
+        $duplicate_transactions = count_duplicate_transactions($import_messages);
+        $new_transactions = max(0, $total_num_transactions - $duplicate_transactions);
+
         ApiResponse::send_json(
             200,
             array(
                 'status' => 'completed',
-                'total_num_transactions' => count($transactions),
+                'total_num_transactions' => $total_num_transactions,
+                'duplicate_transactions' => $duplicate_transactions,
+                'new_transactions' => $new_transactions,
                 'import_messages' => $import_messages
             )
         );
