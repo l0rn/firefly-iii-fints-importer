@@ -30,18 +30,6 @@ To start the app, choose one of the three methods below:
 After completing one of the above steps, browse to http://localhost:8080 and follow the instructions 🙂
 
 
-Dependency install troubleshooting
--------------------------------
-If `composer install` fails due to proxy/network restrictions (for example `CONNECT tunnel failed, response 403`), use:
-
-```
-scripts/composer-install.sh
-```
-
-The script checks connectivity to Packagist + GitHub API, then automatically retries without proxy variables if needed and prints actionable diagnostics.
-
-
-
 Requirements
 ------------
 * Docker **or** (PHP 8.1 or newer and [Composer](https://getcomposer.org/))
