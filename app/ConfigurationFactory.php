@@ -10,14 +10,10 @@ class Configuration {
     public $bank_code;
     public $bank_2fa;
     public $bank_2fa_device;
-    public $bank_fints_persistence;
     public $firefly_url;
     public $firefly_access_token;
     public $skip_transaction_review;
-    public $bank_account_iban;
-    public $firefly_account_id;
-    public $choose_account_from;
-    public $choose_account_to;
+    public $choose_account_automations;
     public $description_regex_match;
     public $description_regex_replace;
     public $force_mt940;
@@ -37,22 +33,15 @@ class ConfigurationFactory
         $configuration->bank_code               = $contentArray["bank_code"];
         $configuration->bank_2fa                = $contentArray["bank_2fa"];
         $configuration->bank_2fa_device         = @$contentArray["bank_2fa_device"];
-        if (isset($contentArray["bank_fints_persistence"]) && $contentArray["bank_fints_persistence"] != '') {
-            $configuration->bank_fints_persistence = base64_decode($contentArray["bank_fints_persistence"]);
-        }
         $configuration->firefly_url             = $contentArray["firefly_url"];
         $configuration->firefly_access_token    = $contentArray["firefly_access_token"];
         $configuration->skip_transaction_review = filter_var($contentArray["skip_transaction_review"], FILTER_VALIDATE_BOOLEAN);
-        if (isset($contentArray["choose_account_automation"])) {
-            $configuration->bank_account_iban       = $contentArray["choose_account_automation"]["bank_account_iban"];
-            $configuration->firefly_account_id      = $contentArray["choose_account_automation"]["firefly_account_id"];
-            $configuration->choose_account_from     = $contentArray["choose_account_automation"]["from"];
-            $configuration->choose_account_to       = $contentArray["choose_account_automation"]["to"];
-        } else {
-            $configuration->bank_account_iban = NULL;
-            $configuration->firefly_account_id = NULL;
-            $configuration->choose_account_from = NULL;
-            $configuration->choose_account_to = NULL;
+        $configuration->choose_account_automations = array();
+        if (isset($contentArray["choose_account_automations"])) {
+            $configuration->choose_account_automations = $contentArray["choose_account_automations"];
+        } elseif (isset($contentArray["choose_account_automation"])) {
+            // backwards compatibility with previous singular key
+            $configuration->choose_account_automations = array($contentArray["choose_account_automation"]);
         }
         $configuration->description_regex_match   = $contentArray["description_regex_match"];
         $configuration->description_regex_replace = $contentArray["description_regex_replace"];

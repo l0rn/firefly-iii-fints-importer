@@ -30,6 +30,18 @@ To start the app, choose one of the three methods below:
 After completing one of the above steps, browse to http://localhost:8080 and follow the instructions 🙂
 
 
+Dependency install troubleshooting
+-------------------------------
+If `composer install` fails due to proxy/network restrictions (for example `CONNECT tunnel failed, response 403`), use:
+
+```
+scripts/composer-install.sh
+```
+
+The script checks connectivity to Packagist + GitHub API, then automatically retries without proxy variables if needed and prints actionable diagnostics.
+
+
+
 Requirements
 ------------
 * Docker **or** (PHP 8.1 or newer and [Composer](https://getcomposer.org/))
@@ -53,8 +65,8 @@ Instead of entering all necessary account information every time, you can load i
 Simply create such a JSON-file in the `data/configurations` folder by adapting the provieded [`data/configurations/example.json`](data/configurations/example.json). When starting the app in your browser, you can then choose the JSON-file as a configuration source.  
 Please note that the `bank_2fa`-value in the JSON file corresponds to the number of the 2-factor authentication as listed in [`app/public/html/collecting-data.twig`](app/public/html/collecting-data.twig).  
 Thanks to [joBr99](https://github.com/joBr99) for this feature!
-If you need to enter a TAN on every import run, you can paste the persistence string you get presented after the import into the configuration file.
-Treat this string as a secret, as it provides access to your bank account without a TAN!
+If you need to avoid entering a TAN on every import run, the importer stores FinTS persistence automatically in `data/state/<config-name>.state` (or a custom folder via `state_dir` query parameter).
+Treat this state file as a secret, as it provides access to your bank account without a TAN!
 
 
 Headless usage
@@ -65,7 +77,10 @@ This importer can be used without a browser (e.g. by using `curl` or `wget`). Fo
 3. Use `curl -X GET 'http://localhost:8080/?automate=true&config=example.json'` 
 4. or `wget -O - -q 'http://localhost:8080/?automate=true&config=example.json'` to run the importer.
 
-Additionally make sure that you filled out the `choose_account_automation` part in the config.  
+Additionally make sure that you filled out `choose_account_automations` in the config.  
+If multiple automation entries are configured, select one via `bank_account_iban` and/or `firefly_account_id` query parameters.
+The import range is configured via `from` and `to` query parameters (e.g. `from=now-7 days&to=now`).
+Optionally set `state_dir=/path/to/state` to control where `.state` files are stored.
 Thanks to [Bur0k](https://github.com/Bur0k) for this feature!
 
 
