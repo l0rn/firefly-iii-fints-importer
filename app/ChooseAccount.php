@@ -4,17 +4,63 @@ namespace App\StepFunction;
 use App\FinTsFactory;
 use App\Step;
 use App\TanHandler;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Session\Session;
+use App\ApiResponse;
 use GrumpyDictator\FFIIIApiSupport\Request\GetAccountsRequest;
-use GrumpyDictator\FFIIIApiSupport\Response\GetAccountResponse;
+
+function parse_import_date($input, $fallback)
+{
+    if (is_null($input) || $input === '') {
+        return $fallback;
+    }
+
+    try {
+        return new \DateTime($input);
+    } catch (\Exception $e) {
+        return $fallback;
+    }
+}
+
+function find_requested_automation($automations)
+{
+    $query_iban = $_GET['bank_account_iban'] ?? null;
+    $query_firefly_id = $_GET['firefly_account_id'] ?? null;
+
+    if (!is_null($query_iban) || !is_null($query_firefly_id)) {
+        foreach ($automations as $automation) {
+            $iban_matches = is_null($query_iban) || (($automation['bank_account_iban'] ?? null) == $query_iban);
+            $firefly_matches = is_null($query_firefly_id) || ((string)($automation['firefly_account_id'] ?? '') === (string)$query_firefly_id);
+            if ($iban_matches && $firefly_matches) {
+                return $automation;
+            }
+        }
+        return null;
+    }
+
+    if (count($automations) === 1) {
+        return $automations[0];
+    }
+
+    return null;
+}
 
 function ChooseAccount()
 {
     global $request, $session, $twig, $fin_ts, $automate_without_js;
 
+
+    if ($automate_without_js && (!isset($_GET['bank_account_iban']) || $_GET['bank_account_iban'] === '')) {
+        ApiResponse::send_json(
+            400,
+            array(
+                'status' => 'missing_parameter',
+                'message' => 'For automate mode, query parameter bank_account_iban is required.'
+            )
+        );
+        return Step::DONE;
+    }
+
     $fin_ts = FinTsFactory::create_from_session($session);
-    $current_step  = new Step($request->request->get("step", Step::STEP0_SETUP));
+    $current_step  = new Step(Step::STEP3_CHOOSE_ACCOUNT);
     $list_accounts_handler = new TanHandler(
         function () {
             global $fin_ts;
@@ -41,8 +87,10 @@ function ChooseAccount()
         $firefly_accounts = $firefly_accounts_request->get();
 
         $requested_bank_index = -1;
-        $requested_bank_iban = $session->get('bank_account_iban');
-        $requested_firefly_id = $session->get('firefly_account_id');
+        $automations = $session->get('choose_account_automations', array());
+        $requested_automation = find_requested_automation($automations);
+        $requested_bank_iban = $requested_automation['bank_account_iban'] ?? null;
+        $requested_firefly_id = $requested_automation['firefly_account_id'] ?? null;
         $error = '';
 
         if (!is_null($requested_bank_iban)) {
@@ -60,7 +108,7 @@ function ChooseAccount()
         if (!is_null($requested_firefly_id)) {
             $firefly_accounts->rewind();
             for ($acc = $firefly_accounts->current(); $firefly_accounts->valid(); $acc = $firefly_accounts->current()) {
-                if ($acc->id == $requested_firefly_id) {
+                if ((string)$acc->id === (string)$requested_firefly_id) {
                     break;
                 }
                 $firefly_accounts->next();
@@ -72,24 +120,10 @@ function ChooseAccount()
             $firefly_accounts->rewind();
         }
 
-        $default_from_date = new \DateTime('now - 1 month');
-        $default_to_date = new \DateTime('now');
+        $default_from_date = parse_import_date($_GET['from'] ?? null, new \DateTime('now - 1 month'));
+        $default_to_date = parse_import_date($_GET['to'] ?? null, new \DateTime('now'));
 
-        $can_be_automated = false;
-
-        if (!is_null($session->get('choose_account_from')) && !is_null($session->get('choose_account_to')))
-        {
-            $can_be_automated = true;
-        }
-        if (!is_null($session->get('choose_account_from')))
-        {
-            $default_from_date = new \DateTime($session->get('choose_account_from'));
-        }
-        if (!is_null($session->get('choose_account_to')))
-        {
-            $default_to_date = new \DateTime($session->get('choose_account_to'));
-        }
-
+        $can_be_automated = !is_null($requested_bank_iban) && !is_null($requested_firefly_id);
 
         if (empty($error)) {
             $session->set('accounts', serialize($bank_accounts));
@@ -102,6 +136,16 @@ function ChooseAccount()
 
                 $session->set('persistedFints', $fin_ts->persist());
                 return Step::STEP4_GET_IMPORT_DATA;
+            }
+            if ($automate_without_js) {
+                ApiResponse::send_json(
+                    400,
+                    array(
+                        'status' => 'missing_mapping',
+                        'message' => 'No automation mapping matched the requested bank_account_iban/firefly_account_id.'
+                    )
+                );
+                return Step::DONE;
             }
             echo $twig->render(
                 'choose-account.twig',
@@ -118,13 +162,23 @@ function ChooseAccount()
                 )
             );
         } else {
-            echo $twig->render(
-                'error.twig',
-                array(
-                    'error_header' => 'Failed to verify given Information',
-                    'error_message' => $error
-                )
-            );
+            if ($automate_without_js) {
+                ApiResponse::send_json(
+                    400,
+                    array(
+                        'status' => 'invalid_configuration',
+                        'message' => trim($error)
+                    )
+                );
+            } else {
+                echo $twig->render(
+                    'error.twig',
+                    array(
+                        'error_header' => 'Failed to verify given Information',
+                        'error_message' => $error
+                    )
+                );
+            }
         }
     }
     $session->set('persistedFints', $fin_ts->persist());

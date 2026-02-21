@@ -4,8 +4,6 @@ namespace App\StepFunction;
 use App\FinTsFactory;
 use App\ConfigurationFactory;
 use App\Step;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Session\Session;
 
 function CollectData()
 {
@@ -18,17 +16,27 @@ function CollectData()
                 'next_step' => Step::STEP1p5_CHOOSE_2FA_DEVICE
             ));
     } else {
+        $state_directory = $session->get('state_directory', 'data/state');
+        $config_basename = $session->get('config_basename');
+
         $session->invalidate();
+        $session->start();
+        $session->set('state_directory', $state_directory);
 
         $filename = $request->request->get('data_collect_mode');
+        if (is_null($config_basename) || $config_basename === '') {
+            $config_basename = pathinfo(basename($filename), PATHINFO_FILENAME);
+        }
+        $session->set('config_basename', $config_basename);
+
         $configuration = ConfigurationFactory::load_from_file($filename);
 
         if ($request->request->has('bank_username')) {
             $configuration->bank_username = $request->request->get('bank_username');
-        } 
+        }
         if ($request->request->has('bank_password')) {
             $configuration->bank_password = $request->request->get('bank_password');
-        }          
+        }
         if ($configuration->bank_username == "" || $configuration->bank_password == "") {
             echo $twig->render(
                 'collecting-data.twig',
@@ -40,6 +48,8 @@ function CollectData()
             return;
         }
 
+        $state_file = rtrim($state_directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $config_basename . '.state';
+
         $session->set('bank_username',           $configuration->bank_username);
         $session->set('bank_password',           $configuration->bank_password);
         $session->set('bank_url',                $configuration->bank_url);
@@ -48,16 +58,13 @@ function CollectData()
         if($configuration->bank_2fa_device) {
             $session->set('bank_2fa_device',         $configuration->bank_2fa_device);
         }
-        if($configuration->bank_fints_persistence) {
-            $session->set('fints_persistence',   $configuration->bank_fints_persistence);
+        if (file_exists($state_file)) {
+            $session->set('fints_persistence', file_get_contents($state_file));
         }
         $session->set('firefly_url',             $configuration->firefly_url);
         $session->set('firefly_access_token',    $configuration->firefly_access_token);
         $session->set('skip_transaction_review', $configuration->skip_transaction_review);
-        $session->set('bank_account_iban' ,      $configuration->bank_account_iban);
-        $session->set('firefly_account_id',      $configuration->firefly_account_id);
-        $session->set('choose_account_from' ,    $configuration->choose_account_from);
-        $session->set('choose_account_to',       $configuration->choose_account_to);
+        $session->set('choose_account_automations', $configuration->choose_account_automations);
         $session->set('description_regex_match', $configuration->description_regex_match);
         $session->set('description_regex_replace', $configuration->description_regex_replace);
         $session->set('force_mt940',             $configuration->force_mt940);

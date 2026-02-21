@@ -14,7 +14,7 @@ function GetImportData()
     $fin_ts = FinTsFactory::create_from_session($session);
 
     $accounts = unserialize($session->get('accounts'));
-    $current_step = new Step($request->request->get("step", Step::STEP0_SETUP));
+    $current_step = new Step(Step::STEP4_GET_IMPORT_DATA);
 
     // Determine which format to use
     // Use format detected during login, with exception-based fallback as backup

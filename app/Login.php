@@ -17,7 +17,7 @@ function Login()
     }
     $fin_ts = FinTsFactory::create_from_session($session);
 
-    $current_step  = new Step($request->request->get("step", Step::STEP0_SETUP));
+    $current_step  = new Step(Step::STEP2_LOGIN);
     $login_handler = new TanHandler(
         function () {
             global $fin_ts;

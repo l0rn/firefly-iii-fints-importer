@@ -3,10 +3,28 @@ namespace App\StepFunction;
 
 use App\TransactionsToFireflySender;
 use App\Step;
-use Symfony\Component\HttpFoundation\Session\Session;
+use App\ApiResponse;
 
 $num_transactions_to_import_at_once = 5;
 
+function save_state_file()
+{
+    global $session;
+
+    if (!$session->has('config_basename') || !$session->has('persistedFints')) {
+        return;
+    }
+
+    $state_directory = $session->get('state_directory', 'data/state');
+    $config_basename = $session->get('config_basename');
+
+    if (!is_dir($state_directory)) {
+        mkdir($state_directory, 0777, true);
+    }
+
+    $state_file = rtrim($state_directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $config_basename . '.state';
+    file_put_contents($state_file, $session->get('persistedFints'));
+}
 
 function RunImport($transactions)
 {
@@ -30,7 +48,7 @@ function RunImport($transactions)
 function RunImportStep($transactions, $start_index)
 {
     global $session, $num_transactions_to_import_at_once;
-    
+
     $transactions_to_process_now = array_slice($transactions, $start_index, $num_transactions_to_import_at_once);
     $result = RunImport($transactions_to_process_now);
     return array($result, count($transactions_to_process_now));
@@ -48,12 +66,12 @@ function RunImportWithJS()
     $num_transactions_processed  = $session->get('num_transactions_processed');
     $import_messages             = unserialize($session->get('import_messages'));
     if ($num_transactions_processed >= count($transactions)) {
+        save_state_file();
         echo $twig->render(
             'done.twig',
             array(
                 'import_messages' => $import_messages,
-                'total_num_transactions' => count($transactions),
-                'fints_persistence' => base64_encode($session->get('persistedFints'))
+                'total_num_transactions' => count($transactions)
             )
         );
         $session->invalidate();
@@ -77,9 +95,30 @@ function RunImportWithJS()
     return Step::DONE;
 }
 
+
+function count_duplicate_transactions($import_messages)
+{
+    $duplicates = 0;
+
+    foreach ($import_messages as $message_entry) {
+        if (!is_array($message_entry) || !array_key_exists('messages', $message_entry)) {
+            continue;
+        }
+
+        foreach ($message_entry['messages'] as $message_text) {
+            if (stripos((string)$message_text, 'duplicate') !== false) {
+                $duplicates++;
+                break;
+            }
+        }
+    }
+
+    return $duplicates;
+}
+
 function RunImportWithoutJS()
 {
-    global $session, $twig;
+    global $session, $twig, $automate_without_js;
 
     assert($session->has('transactions_to_import'));
     assert($session->has('firefly_account'));
@@ -90,7 +129,7 @@ function RunImportWithoutJS()
     } else {
         $import_messages = [];
         $num_transactions_processed = 0;
-        
+
         while ($num_transactions_processed < count($transactions))
         {
             list($result,$transaction_processed_step_count) = RunImportStep($transactions, $num_transactions_processed);
@@ -98,13 +137,31 @@ function RunImportWithoutJS()
             $import_messages = array_merge($import_messages, $result);
         }
     }
-    echo $twig->render(
-        'done.twig',
-        array(
-            'import_messages' => $import_messages,
-            'total_num_transactions' => count($transactions)
-        )
-    );
+    save_state_file();
+    if ($automate_without_js) {
+        $total_num_transactions = count($transactions);
+        $duplicate_transactions = count_duplicate_transactions($import_messages);
+        $new_transactions = max(0, $total_num_transactions - $duplicate_transactions);
+
+        ApiResponse::send_json(
+            200,
+            array(
+                'status' => 'completed',
+                'total_num_transactions' => $total_num_transactions,
+                'duplicate_transactions' => $duplicate_transactions,
+                'new_transactions' => $new_transactions,
+                'import_messages' => $import_messages
+            )
+        );
+    } else {
+        echo $twig->render(
+            'done.twig',
+            array(
+                'import_messages' => $import_messages,
+                'total_num_transactions' => count($transactions)
+            )
+        );
+    }
     $session->invalidate();
     return Step::DONE;
 }
