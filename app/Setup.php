@@ -2,6 +2,7 @@
 namespace App\StepFunction;
 
 use App\Step;
+use App\ApiResponse;
 
 function Setup()
 {
@@ -13,13 +14,23 @@ function Setup()
         $filename = basename($_GET['config']);
         $requested_config_file = 'data/configurations/' . $filename;
         if (!file_exists($requested_config_file)) {
-            echo $twig->render(
-                'error.twig',
-                array(
-                    'error_header' => 'Could not find the configuration',
-                    'error_message' => 'The configuration \'' . $filename . '\' could\'t be found in the directory \'data/configurations/\''
-                )
-            );
+            if ($automate_without_js) {
+                ApiResponse::send_json(
+                    400,
+                    array(
+                        'status' => 'invalid_configuration',
+                        'message' => 'The configuration ' . $filename . ' could not be found in data/configurations/.'
+                    )
+                );
+            } else {
+                echo $twig->render(
+                    'error.twig',
+                    array(
+                        'error_header' => 'Could not find the configuration',
+                        'error_message' => 'The configuration \'' . $filename . '\' could\'t be found in the directory \'data/configurations/\''
+                    )
+                );
+            }
             return;
         }
 
@@ -49,6 +60,6 @@ function Setup()
             'requested_config_file' => $requested_config_file,
             'next_step' => Step::STEP1_COLLECTING_DATA
     ));
-    
+
     return Step::DONE;
 }

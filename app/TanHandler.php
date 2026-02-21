@@ -40,7 +40,7 @@ class TanHandler
                 if ($this->action->getTanRequest() != null && !$this->fin_ts->checkDecoupledSubmission($this->action)) {
                     $this->action = ($this->create_action_lambda)();
                 }
-            } else {
+            } elseif ($this->request->request->has('tan')) {
                 $this->fin_ts->submitTan($this->action, $this->request->request->get('tan'));
             }
         } else {
@@ -55,6 +55,8 @@ class TanHandler
 
     public function pose_and_render_tan_challenge(): void
     {
+        global $automate_without_js;
+
         assert($this->needs_tan());
         $tanRequest = $this->action->getTanRequest();
         if ($tanRequest->getChallengeHhdUc()) {
@@ -71,6 +73,27 @@ class TanHandler
         }else{
             $challengeImageSrc = null;
         }
+
+        $this->session->set($this->action_id, serialize($this->action));
+
+        if ($automate_without_js) {
+            $tan_link = $this->request->getSchemeAndHttpHost()
+                . $this->request->getBasePath()
+                . '/?step=' . (string)$this->current_step
+                . '&session_id=' . urlencode($this->session->getId());
+            ApiResponse::send_json(
+                202,
+                array(
+                    'status' => 'tan_required',
+                    'step' => (string)$this->current_step,
+                    'challenge' => $tanRequest->getChallenge(),
+                    'device' => $tanRequest->getTanMediumName(),
+                    'tan_url' => $tan_link
+                )
+            );
+            return;
+        }
+
         echo $this->twig->render(
             'tan-challenge.twig',
             array(
@@ -81,7 +104,6 @@ class TanHandler
                 'is_decoupled_tan_mode' => $this->fin_ts->getSelectedTanMode()->isDecoupled(),
             )
         );
-        $this->session->set($this->action_id, serialize($this->action));
     }
 
     public function get_finished_action(): BaseAction
