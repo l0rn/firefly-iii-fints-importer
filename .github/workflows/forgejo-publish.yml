@@ -1,0 +1,64 @@
+name: ci
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'master'
+
+jobs:
+  docker:
+    runs-on: docker
+    steps:
+      - name: Compute image tags
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          registry="${GITHUB_SERVER_URL#https://}"
+          registry="${registry#http://}"
+          image="${registry}/${GITHUB_REPOSITORY}"
+          sha_tag="sha-${GITHUB_SHA::12}"
+          tags="${image}:${sha_tag}"
+
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            tags+=$'\n'"${image}:latest"
+          fi
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            tags+=$'\n'"${image}:${GITHUB_REF_NAME}"
+          fi
+
+          echo "registry=${registry}" >> "${GITHUB_OUTPUT}"
+          echo "tags<<EOF" >> "${GITHUB_OUTPUT}"
+          echo "${tags}" >> "${GITHUB_OUTPUT}"
+          echo "EOF" >> "${GITHUB_OUTPUT}"
+
+      - name: Login to Forgejo registry
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          registry="${{ steps.meta.outputs.registry }}"
+          user="${GITHUB_ACTOR}"
+          pass="${{ secrets.FORGEJO_REGISTRY_TOKEN }}"
+
+          # Prefer explicit registry creds (owner PAT with package write scope).
+          if [[ -z "${user}" || -z "${pass}" ]]; then
+            user="${GITHUB_ACTOR}"
+            pass="${{ secrets.GITHUB_TOKEN }}"
+            echo "REGISTRY_USERNAME/REGISTRY_TOKEN not set, falling back to GITHUB_TOKEN"
+          fi
+
+          echo "${pass}" | podman login "${registry}" -u "${user}" --password-stdin
+
+      - name: Build and push
+        shell: sh
+        run: |
+          set -eu
+          TAGS="${{ steps.meta.outputs.tags }}"
+          for tag in ${TAGS}; do
+            podman build -t "${tag}" .
+            podman push "${tag}"
+          done
