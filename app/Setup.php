@@ -5,7 +5,7 @@ use App\Step;
 
 function Setup()
 {
-    global $twig, $automate_without_js, $request;
+    global $twig, $automate_without_js, $request, $session;
 
     $requested_config_file = '';
 
@@ -22,6 +22,10 @@ function Setup()
             );
             return;
         }
+
+        $state_directory = $_GET['state_dir'] ?? 'data/state';
+        $session->set('state_directory', $state_directory);
+        $session->set('config_basename', pathinfo($filename, PATHINFO_FILENAME));
 
         if ($automate_without_js)
         {
