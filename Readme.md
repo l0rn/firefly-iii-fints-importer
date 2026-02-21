@@ -50,7 +50,7 @@ Storing configurations
 ----------------------
 
 Instead of entering all necessary account information every time, you can load it from a JSON-file.  
-Simply create such a JSON-file in the `data/configurations` folder by adapting the provieded [`data/configurations/example.json`](data/configurations/example.json). When starting the app in your browser, you can then choose the JSON-file as a configuration source.  
+Simply create such a JSON-file in the `data/configurations` folder by adapting the provided [`data/configurations/example.json`](data/configurations/example.json). When starting the app in your browser, you can then choose the JSON-file as a configuration source.  
 Please note that the `bank_2fa`-value in the JSON file corresponds to the number of the 2-factor authentication as listed in [`app/public/html/collecting-data.twig`](app/public/html/collecting-data.twig).  
 Thanks to [joBr99](https://github.com/joBr99) for this feature!
 If you need to avoid entering a TAN on every import run, the importer stores FinTS persistence automatically in `data/state/<config-name>.state` (or a custom folder via `state_dir` query parameter).
