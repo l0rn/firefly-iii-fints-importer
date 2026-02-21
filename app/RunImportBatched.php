@@ -3,6 +3,7 @@ namespace App\StepFunction;
 
 use App\TransactionsToFireflySender;
 use App\Step;
+use App\ApiResponse;
 
 $num_transactions_to_import_at_once = 5;
 
@@ -96,7 +97,7 @@ function RunImportWithJS()
 
 function RunImportWithoutJS()
 {
-    global $session, $twig;
+    global $session, $twig, $automate_without_js;
 
     assert($session->has('transactions_to_import'));
     assert($session->has('firefly_account'));
@@ -116,13 +117,24 @@ function RunImportWithoutJS()
         }
     }
     save_state_file();
-    echo $twig->render(
-        'done.twig',
-        array(
-            'import_messages' => $import_messages,
-            'total_num_transactions' => count($transactions)
-        )
-    );
+    if ($automate_without_js) {
+        ApiResponse::send_json(
+            200,
+            array(
+                'status' => 'completed',
+                'total_num_transactions' => count($transactions),
+                'import_messages' => $import_messages
+            )
+        );
+    } else {
+        echo $twig->render(
+            'done.twig',
+            array(
+                'import_messages' => $import_messages,
+                'total_num_transactions' => count($transactions)
+            )
+        );
+    }
     $session->invalidate();
     return Step::DONE;
 }
