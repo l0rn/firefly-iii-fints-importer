@@ -60,7 +60,7 @@ function ChooseAccount()
     }
 
     $fin_ts = FinTsFactory::create_from_session($session);
-    $current_step  = new Step($request->get("step", Step::STEP0_SETUP));
+    $current_step  = new Step(Step::STEP3_CHOOSE_ACCOUNT);
     $list_accounts_handler = new TanHandler(
         function () {
             global $fin_ts;
