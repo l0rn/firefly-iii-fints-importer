@@ -50,22 +50,32 @@ Storing configurations
 ----------------------
 
 Instead of entering all necessary account information every time, you can load it from a JSON-file.  
-Simply create such a JSON-file in the `data/configurations` folder by adapting the provieded [`data/configurations/example.json`](data/configurations/example.json). When starting the app in your browser, you can then choose the JSON-file as a configuration source.  
+Simply create such a JSON-file in the `data/configurations` folder by adapting the provided [`data/configurations/example.json`](data/configurations/example.json). When starting the app in your browser, you can then choose the JSON-file as a configuration source.  
 Please note that the `bank_2fa`-value in the JSON file corresponds to the number of the 2-factor authentication as listed in [`app/public/html/collecting-data.twig`](app/public/html/collecting-data.twig).  
 Thanks to [joBr99](https://github.com/joBr99) for this feature!
-If you need to enter a TAN on every import run, you can paste the persistence string you get presented after the import into the configuration file.
-Treat this string as a secret, as it provides access to your bank account without a TAN!
+If you need to avoid entering a TAN on every import run, the importer stores FinTS persistence automatically in `data/state/<config-name>.state` (or a custom folder via `state_dir` query parameter).
+Treat this state file as a secret, as it provides access to your bank account without a TAN!
 
 
 Headless usage
 -----
-This importer can be used without a browser (e.g. by using `curl` or `wget`). For this you have to specify two `GET` parameters:
+This importer can be used without a browser (e.g. by using `curl` or `wget`). For this use these `GET` parameters:
 1. `automate=true`
 2. `config=example.json` where example.json is a config located in the "data/configurations" folder.
-3. Use `curl -X GET 'http://localhost:8080/?automate=true&config=example.json'` 
-4. or `wget -O - -q 'http://localhost:8080/?automate=true&config=example.json'` to run the importer.
+3. `bank_account_iban=<iban>` to select the account automation mapping to use (required in automate mode).
 
-Additionally make sure that you filled out the `choose_account_automation` part in the config.  
+Example:
+`curl -X GET 'http://localhost:8080/?automate=true&config=example.json&bank_account_iban=DE123...&from=now-7%20days&to=now'`
+
+Automate mode responds with JSON:
+- `200` when import finished,
+- `400` if required parameters/mappings are missing,
+- `202` if a TAN challenge is required. The response contains a `tan_url` you can open in a browser to complete the challenge.
+
+Additionally make sure that you filled out `choose_account_automations` in the config.  
+If multiple automation entries are configured, you can narrow selection with `firefly_account_id`.
+The import range is configured via `from` and `to` query parameters (e.g. `from=now-7 days&to=now`).
+Optionally set `state_dir=/path/to/state` to control where `.state` files are stored.
 Thanks to [Bur0k](https://github.com/Bur0k) for this feature!
 
 

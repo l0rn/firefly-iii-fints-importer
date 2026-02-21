@@ -39,9 +39,12 @@ $automate_without_js = false;
 
 $request = Request::createFromGlobals();
 
-$current_step = new Step($request->request->get("step", Step::STEP0_SETUP));
+$current_step = new Step($request->get("step", Step::STEP0_SETUP));
 
 $session = new Session();
+if (isset($_GET['session_id']) && $_GET['session_id'] !== '') {
+    $session->setId($_GET['session_id']);
+}
 $session->start();
 
 if (isset($_GET['automate'])) {
